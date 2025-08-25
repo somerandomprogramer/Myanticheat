@@ -1,2 +1,1 @@
-# Myanticheat
-Minecraft anticheat for speed hack kill aura and fly 
+# Myanticheat 1.0 lehetnek problémák esetleges problémákért nem vállalok felelősséget
