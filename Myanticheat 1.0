@@ -1,0 +1,91 @@
+package com.yourname.multianticheat;
+
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.HashMap;
+import java.util.UUID;
+
+public class MultiAntiCheat extends JavaPlugin implements Listener {
+
+    private final HashMap<UUID, Long> lastAttack = new HashMap<>();
+    private final HashMap<UUID, Integer> itemCount = new HashMap<>();
+
+    @Override
+    public void onEnable() {
+        getLogger().info("MultiAntiCheat enabled!");
+        Bukkit.getPluginManager().registerEvents(this, this);
+    }
+
+    @Override
+    public void onDisable() {
+        getLogger().info("MultiAntiCheat disabled!");
+    }
+
+    // Fly / Speed check
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+
+        if (!player.getAllowFlight() && player.getLocation().getY() > 256) {
+            player.sendMessage("§cNem repülhetsz!");
+            player.teleport(player.getWorld().getHighestBlockAt(player.getLocation()).getLocation().add(0,1,0));
+        }
+
+        double deltaX = event.getTo().getX() - event.getFrom().getX();
+        double deltaZ = event.getTo().getZ() - event.getFrom().getZ();
+        double speed = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+
+        if (speed > 1.0 && player.getGameMode() != GameMode.CREATIVE) {
+            player.sendMessage("§cTúl gyorsan mozogsz!");
+            player.teleport(event.getFrom());
+        }
+    }
+
+    // Kill aura / Aim assist check
+    @EventHandler
+    public void onPlayerAttack(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Player)) return;
+
+        Player attacker = event.getPlayer();
+        long now = System.currentTimeMillis();
+        if (lastAttack.containsKey(attacker.getUniqueId())) {
+            long diff = now - lastAttack.get(attacker.getUniqueId());
+            if (diff < 100) {
+                attacker.sendMessage("§cTúl gyorsan támadsz (kill aura)!");
+                event.setCancelled(true);
+            }
+        }
+        lastAttack.put(attacker.getUniqueId(), now);
+    }
+
+    // Item duping check
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+
+        Player player = (Player) event.getWhoClicked();
+        ItemStack item = event.getCurrentItem();
+        if (item == null || item.getType() == Material.AIR) return;
+
+        int count = itemCount.getOrDefault(player.getUniqueId(), 0);
+        count += item.getAmount();
+
+        if (count > 1000) {
+            player.sendMessage("§cItem duping gyanús!");
+            player.getInventory().remove(item.getType());
+            count = 0;
+        }
+
+        itemCount.put(player.getUniqueId(), count);
+    }
+}
